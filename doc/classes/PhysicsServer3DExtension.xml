@@ -1257,7 +1257,13 @@
 			<description>
 			</description>
 		</method>
-		<method name="_space_get_contact_count" qualifiers="virtual required const">
+		<method name="_space_flush_queries" qualifiers="virtual" experimental="">
+			<return type="void" />
+			<param index="0" name="space" type="RID" />
+			<description>
+			</description>
+		</method>
+		<method name="_space_get_contact_count" qualifiers="virtual const">
 			<return type="int" />
 			<param index="0" name="space" type="RID" />
 			<description>
@@ -1275,7 +1281,14 @@
 			<description>
 			</description>
 		</method>
-		<method name="_space_get_param" qualifiers="virtual required const">
+		<method name="_space_get_last_process_info" qualifiers="virtual" experimental="">
+			<return type="int" />
+			<param index="0" name="space" type="RID" />
+			<param index="1" name="process_info" type="int" enum="PhysicsServer3D.ProcessInfo" />
+			<description>
+			</description>
+		</method>
+		<method name="_space_get_param" qualifiers="virtual const">
 			<return type="float" />
 			<param index="0" name="space" type="RID" />
 			<param index="1" name="param" type="int" enum="PhysicsServer3D.SpaceParameter" />
@@ -1310,7 +1323,14 @@
 			<description>
 			</description>
 		</method>
-		<method name="_sphere_shape_create" qualifiers="virtual required">
+		<method name="_space_step" qualifiers="virtual" experimental="">
+			<return type="void" />
+			<param index="0" name="space" type="RID" />
+			<param index="1" name="delta" type="float" />
+			<description>
+			</description>
+		</method>
+		<method name="_sphere_shape_create" qualifiers="virtual">
 			<return type="RID" />
 			<description>
 			</description>
