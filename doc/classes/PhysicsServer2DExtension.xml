@@ -1024,7 +1024,13 @@
 				Overridable version of [method PhysicsServer2D.space_create].
 			</description>
 		</method>
-		<method name="_space_get_contact_count" qualifiers="virtual required const">
+		<method name="_space_flush_queries" qualifiers="virtual" experimental="">
+			<return type="void" />
+			<param index="0" name="space" type="RID" />
+			<description>
+			</description>
+		</method>
+		<method name="_space_get_contact_count" qualifiers="virtual const">
 			<return type="int" />
 			<param index="0" name="space" type="RID" />
 			<description>
@@ -1047,7 +1053,14 @@
 				Overridable version of [method PhysicsServer2D.space_get_direct_state].
 			</description>
 		</method>
-		<method name="_space_get_param" qualifiers="virtual required const">
+		<method name="_space_get_last_process_info" qualifiers="virtual" experimental="">
+			<return type="int" />
+			<param index="0" name="space" type="RID" />
+			<param index="1" name="process_info" type="int" enum="PhysicsServer2D.ProcessInfo" />
+			<description>
+			</description>
+		</method>
+		<method name="_space_get_param" qualifiers="virtual const">
 			<return type="float" />
 			<param index="0" name="space" type="RID" />
 			<param index="1" name="param" type="int" enum="PhysicsServer2D.SpaceParameter" />
@@ -1088,7 +1101,14 @@
 				Overridable version of [method PhysicsServer2D.space_set_param].
 			</description>
 		</method>
-		<method name="_step" qualifiers="virtual required">
+		<method name="_space_step" qualifiers="virtual" experimental="">
+			<return type="void" />
+			<param index="0" name="space" type="RID" />
+			<param index="1" name="delta" type="float" />
+			<description>
+			</description>
+		</method>
+		<method name="_step" qualifiers="virtual">
 			<return type="void" />
 			<param index="0" name="step" type="float" />
 			<description>
