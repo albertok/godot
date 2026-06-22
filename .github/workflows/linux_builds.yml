@@ -31,20 +31,27 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: Editor (target=editor)
+            cache-name: linux-editor
+            target: editor
+            scons-flags: compiledb=yes
+            bin: ./bin/godot.linuxbsd.editor.x86_64
+            artifact: true
+            doc-test: false
+            proj-conv: true
+            proj-export: true
+            api-compat: true
+            clangd-tidy: true
+
           - name: Editor w/ Mono (target=editor)
             cache-name: linux-editor-mono
             target: editor
             scons-flags: module_mono_enabled=yes compiledb=yes
             bin: ./bin/godot.linuxbsd.editor.x86_64.mono
             build-mono: true
-            doc-test: true
-            proj-conv: true
-            proj-export: true
-            api-compat: true
             artifact: true
             # Validate godot-cpp compatibility on one arbitrary editor build.
             godot-cpp: true
-            clangd-tidy: true
 
           - name: Editor with doubles and GCC sanitizers (target=editor, dev_build=yes, scu_build=yes, precision=double, use_asan=yes, use_ubsan=yes, linker=mold)
             cache-name: linux-editor-double-sanitizers
@@ -87,6 +94,20 @@ jobs:
             bin: ./bin/godot.linuxbsd.editor.dev.x86_64.llvm.san
             free-space: true
 
+          - name: Template release (target=template_release)
+            cache-name: linux-template-release
+            target: template_release
+            scons-flags: ""
+            bin: ./bin/godot.linuxbsd.template_release.x86_64
+            artifact: true
+
+          - name: Template debug (target=template_debug)
+            cache-name: linux-template-debug
+            target: template_debug
+            scons-flags: ""
+            bin: ./bin/godot.linuxbsd.template_debug.x86_64
+            artifact: true
+
           - name: Template w/ Mono, release (target=template_release)
             cache-name: linux-template-mono
             target: template_release
@@ -115,7 +136,7 @@ jobs:
               minizip=no
               brotli=no
             bin: ./bin/godot.linuxbsd.template_release.x86_64
-            artifact: true
+            artifact: false
 
     steps:
       - name: Checkout
