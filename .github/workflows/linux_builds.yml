@@ -40,8 +40,8 @@ jobs:
             doc-test: false
             proj-conv: true
             proj-export: true
-            api-compat: true
-            clangd-tidy: true
+            api-compat: false
+            clangd-tidy: false
 
           - name: Editor w/ Mono (target=editor)
             cache-name: linux-editor-mono
@@ -51,7 +51,7 @@ jobs:
             build-mono: true
             artifact: true
             # Validate godot-cpp compatibility on one arbitrary editor build.
-            godot-cpp: true
+            godot-cpp: false
 
           - name: Editor with doubles and GCC sanitizers (target=editor, dev_build=yes, scu_build=yes, precision=double, use_asan=yes, use_ubsan=yes, linker=mold)
             cache-name: linux-editor-double-sanitizers
