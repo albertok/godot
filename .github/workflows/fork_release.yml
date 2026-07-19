@@ -37,65 +37,127 @@ jobs:
         shell: bash
         run: |
           VERSION=$(python3 -c "exec(open('version.py').read()); print(f'{major}.{minor}-{status}')")
+          VERSION_FULL=$(python3 -c "exec(open('version.py').read()); print(f'{major}.{minor}.{patch}.{status}')")
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG="${{ inputs.tag }}"
           else
             TAG="${{ github.ref_name }}"
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "version-full=${VERSION_FULL}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
-      - name: Pack and rename artifacts
+      - name: Pack editor artifacts
         shell: bash
         run: |
           set -euo pipefail
           VERSION='${{ steps.meta.outputs.version }}'
           mkdir -p release-assets
 
-          for d in artifacts/*; do
-            [ -d "$d" ] || continue
-            base=$(basename "$d")
-            out=""
-            case "$base" in
-              android-editor) out="Godot_v${VERSION}_android_editor" ;;
-              android-editor-horizonos) out="Godot_v${VERSION}_android_editor_horizonos" ;;
-              android-editor-picoos) out="Godot_v${VERSION}_android_editor_picoos" ;;
-              android-template-arm32) out="Godot_v${VERSION}_android.arm32" ;;
-              android-template-arm64) out="Godot_v${VERSION}_android.arm64" ;;
-              linux-editor) out="Godot_v${VERSION}_linux.x86_64" ;;
-              linux-editor-mono) out="Godot_v${VERSION}_mono_linux_x86_64" ;;
-              linux-template-release) out="Godot_v${VERSION}.template_release.x86_64" ;;
-              linux-template-debug) out="Godot_v${VERSION}.template_debug.x86_64" ;;
-              linux-template-mono) out="Godot_v${VERSION}_mono.template_release.x86_64" ;;
-              linux-template-mono-debug) out="Godot_v${VERSION}_mono.template_debug.x86_64" ;;
-              macos-editor) out="Godot_v${VERSION}_macos.universal" ;;
-              macos-template) out="Godot_v${VERSION}_macos.template_release.universal" ;;
-              windows-editor) out="Godot_v${VERSION}_win64" ;;
-              windows-template) out="Godot_v${VERSION}_win64.console" ;;
-              web-template) out="Godot_v${VERSION}_web.wasm64" ;;
-              web-nothreads-template) out="Godot_v${VERSION}_web.wasm32" ;;
-              *) ;;
-            esac
-
-            # iOS upload may use a generic artifact directory name; detect by payload.
-            if [ -z "$out" ] && find "$d" -type f | grep -Eq '/(lib)?godot\.ios\.'; then
-              out="Godot_v${VERSION}_ios.arm64"
+          pack() {
+            local dir="artifacts/$1" out="release-assets/${2}.zip"
+            if [ ! -d "$dir" ]; then
+              echo "::warning::Artifact '$1' not found — skipping"
+              return 0
             fi
+            (cd "$dir" && zip -qry "../../$out" .)
+          }
 
-            if [ -z "$out" ]; then
-              out="$base"
-            fi
+          # Editors — individual zips, downloaded directly by users
+          pack android-editor           "Godot_v${VERSION}_android_editor"
+          pack android-editor-horizonos "Godot_v${VERSION}_android_editor_horizonos"
+          pack android-editor-picoos    "Godot_v${VERSION}_android_editor_picoos"
+          pack linux-editor             "Godot_v${VERSION}_linux.x86_64"
+          pack linux-editor-mono        "Godot_v${VERSION}_mono_linux_x86_64"
+          pack macos-editor             "Godot_v${VERSION}_macos.universal"
+          pack windows-editor           "Godot_v${VERSION}_win64"
 
-            (
-              cd "$d"
-              zip -qry "../../release-assets/${out}.zip" .
-            )
+      - name: Bundle export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION='${{ steps.meta.outputs.version }}'
+          VERSION_FULL='${{ steps.meta.outputs.version-full }}'
+          mkdir -p release-assets templates templates-mono
+
+          # Find a file by name anywhere inside an artifact directory
+          find_file() { find "artifacts/$1" -type f -name "$2" 2>/dev/null | head -1; }
+
+          # ── version.txt ────────────────────────────────────────────────────────
+          # Required by Godot's export template installer; format: major.minor.patch.status
+          echo "$VERSION_FULL" > templates/version.txt
+          echo "$VERSION_FULL" > templates-mono/version.txt
+
+          # ── Linux ──────────────────────────────────────────────────────────────
+          f=$(find_file linux-template-release "godot.linuxbsd.template_release.x86_64")
+          [ -n "$f" ] && cp "$f" templates/linux_release.x86_64
+
+          f=$(find_file linux-template-debug "godot.linuxbsd.template_debug.x86_64")
+          [ -n "$f" ] && cp "$f" templates/linux_debug.x86_64
+
+          # Linux Mono
+          f=$(find_file linux-template-mono "godot.linuxbsd.template_release.x86_64.mono")
+          [ -n "$f" ] && cp "$f" templates-mono/linux_release.x86_64
+
+          f=$(find_file linux-template-mono-debug "godot.linuxbsd.template_debug.x86_64.mono")
+          [ -n "$f" ] && cp "$f" templates-mono/linux_debug.x86_64
+
+          # ── Windows ────────────────────────────────────────────────────────────
+          # Only template_release is built; copied to both release and debug slots.
+          f=$(find_file windows-template "godot.windows.template_release.x86_64.console.exe")
+          if [ -n "$f" ]; then
+            cp "$f" templates/windows_release_x86_64.exe
+            cp "$f" templates/windows_debug_x86_64.exe
+          fi
+
+          # ── macOS ──────────────────────────────────────────────────────────────
+          # Package universal binary into a minimal .app bundle as macos.zip
+          f=$(find_file macos-template "godot.macos.template_release.universal")
+          if [ -n "$f" ]; then
+            mkdir -p macos-app/Godot.app/Contents/MacOS
+            cp "$f" macos-app/Godot.app/Contents/MacOS/Godot
+            chmod +x macos-app/Godot.app/Contents/MacOS/Godot
+            (cd macos-app && zip -qry ../templates/macos.zip .)
+            rm -rf macos-app
+          fi
+
+          # ── Web ────────────────────────────────────────────────────────────────
+          # Threads build → web_release.zip / web_debug.zip
+          if [ -d "artifacts/web-template" ]; then
+            (cd artifacts/web-template && zip -qry ../../templates/web_release.zip .)
+            (cd artifacts/web-template && zip -qry ../../templates/web_debug.zip .)
+          fi
+
+          # No-threads build → web_nothreads_release.zip / web_nothreads_debug.zip
+          if [ -d "artifacts/web-nothreads-template" ]; then
+            (cd artifacts/web-nothreads-template && zip -qry ../../templates/web_nothreads_release.zip .)
+            (cd artifacts/web-nothreads-template && zip -qry ../../templates/web_nothreads_debug.zip .)
+          fi
+
+          # ── Android ────────────────────────────────────────────────────────────
+          for apk in android_release.apk android_debug.apk; do
+            f=$(find_file android-template-arm64 "$apk")
+            [ -n "$f" ] && cp "$f" "templates/$apk"
           done
 
-          (
-            cd release-assets
-            sha256sum *.zip > SHA256SUMS.txt
-          )
+          # ── iOS ────────────────────────────────────────────────────────────────
+          for d in artifacts/*; do
+            [ -d "$d" ] || continue
+            if find "$d" -type f | grep -Eq '(lib)?godot\.ios\.'; then
+              (cd "$d" && zip -qry ../../templates/ios.zip .)
+              break
+            fi
+          done
+
+          # ── Bundle into .tpz files ─────────────────────────────────────────────
+          (cd templates      && zip -qry ../release-assets/Godot_v${VERSION}_export_templates.tpz .)
+          (cd templates-mono && zip -qry ../release-assets/Godot_v${VERSION}_mono_export_templates.tpz .)
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          cd release-assets
+          find . -maxdepth 1 -type f ! -name 'SHA256SUMS.txt' | sort | xargs sha256sum > SHA256SUMS.txt
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
@@ -103,4 +165,5 @@ jobs:
           tag_name: ${{ steps.meta.outputs.tag }}
           files: |
             release-assets/*.zip
+            release-assets/*.tpz
             release-assets/SHA256SUMS.txt
