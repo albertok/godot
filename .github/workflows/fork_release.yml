@@ -71,7 +71,7 @@ jobs:
               macos-editor) out="Godot_v${VERSION}_macos.universal" ;;
               macos-template) out="Godot_v${VERSION}_macos.template_release.universal" ;;
               windows-editor) out="Godot_v${VERSION}_win64" ;;
-              windows-template) out="Godot_v${VERSION}_win64.console" ;;
+              windows-template) out="Godot_v${VERSION}_win64.template_release" ;;
               web-template) out="Godot_v${VERSION}_web.wasm64" ;;
               web-nothreads-template) out="Godot_v${VERSION}_web.wasm32" ;;
               *) ;;
