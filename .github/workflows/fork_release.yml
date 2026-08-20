@@ -1,0 +1,106 @@
+name: 🚀 Fork Release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag name for the release (for example, v4.7-stable-fork.1)
+        required: true
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  builds:
+    name: Build Artifacts
+    uses: ./.github/workflows/fork_runner.yml
+    secrets: inherit
+
+  publish-release:
+    name: Publish Release
+    needs: builds
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: artifacts
+
+      - name: Resolve version and tag
+        id: meta
+        shell: bash
+        run: |
+          VERSION=$(python3 -c "exec(open('version.py').read()); print(f'{major}.{minor}-{status}')")
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Pack and rename artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION='${{ steps.meta.outputs.version }}'
+          mkdir -p release-assets
+
+          for d in artifacts/*; do
+            [ -d "$d" ] || continue
+            base=$(basename "$d")
+            out=""
+            case "$base" in
+              android-editor) out="Godot_v${VERSION}_android_editor" ;;
+              android-editor-horizonos) out="Godot_v${VERSION}_android_editor_horizonos" ;;
+              android-editor-picoos) out="Godot_v${VERSION}_android_editor_picoos" ;;
+              android-template-arm32) out="Godot_v${VERSION}_android.arm32" ;;
+              android-template-arm64) out="Godot_v${VERSION}_android.arm64" ;;
+              linux-editor) out="Godot_v${VERSION}_linux.x86_64" ;;
+              linux-editor-mono) out="Godot_v${VERSION}_mono_linux_x86_64" ;;
+              linux-template-release) out="Godot_v${VERSION}.template_release.x86_64" ;;
+              linux-template-debug) out="Godot_v${VERSION}.template_debug.x86_64" ;;
+              linux-template-mono) out="Godot_v${VERSION}_mono.template_release.x86_64" ;;
+              linux-template-mono-debug) out="Godot_v${VERSION}_mono.template_debug.x86_64" ;;
+              macos-editor) out="Godot_v${VERSION}_macos.universal" ;;
+              macos-template) out="Godot_v${VERSION}_macos.template_release.universal" ;;
+              windows-editor) out="Godot_v${VERSION}_win64" ;;
+              windows-template) out="Godot_v${VERSION}_win64.template_release" ;;
+              web-template) out="Godot_v${VERSION}_web.wasm64" ;;
+              web-nothreads-template) out="Godot_v${VERSION}_web.wasm32" ;;
+              *) ;;
+            esac
+
+            # iOS upload may use a generic artifact directory name; detect by payload.
+            if [ -z "$out" ] && find "$d" -type f | grep -Eq '/(lib)?godot\.ios\.'; then
+              out="Godot_v${VERSION}_ios.arm64"
+            fi
+
+            if [ -z "$out" ]; then
+              out="$base"
+            fi
+
+            (
+              cd "$d"
+              zip -qry "../../release-assets/${out}.zip" .
+            )
+          done
+
+          (
+            cd release-assets
+            sha256sum *.zip > SHA256SUMS.txt
+          )
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          files: |
+            release-assets/*.zip
+            release-assets/SHA256SUMS.txt
